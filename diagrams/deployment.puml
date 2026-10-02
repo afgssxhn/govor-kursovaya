@@ -1,0 +1,25 @@
+@startuml
+title Диаграмма развертывания системы: Модуль поддержки и справки
+skinparam defaultFontName DejaVu Sans
+skinparam dpi 150
+skinparam shadowing false
+
+actor "Заявитель" as appl
+actor "Оператор поддержки (Admin)" as support
+
+node "Пользовательский браузер" as browser {
+    artifact "Angular SPA\n/admin/support — модуль поддержки\n(libs/web/admin/…/features/support)\n/applicant/support (проектируется)\n/notary/support (проектируется)" as spa
+}
+
+node "Виртуальный сервер (Linux, Docker)" as server {
+    component "nginx portal (порт 80)\nстатика + проксирование\nConnect RPC (/notary.*) и REST (/api/*)" as nginx
+    component "NestJS API (порт 3000)\nSupportRpcService -> SupportService\nKnowledgeBaseService (проектируется)\nNotificationService: оповещения\nпо тикетам (проектируется)" as api
+    database "PostgreSQL (Prisma)\ntickets, ticket_messages, users\nArticle (проектируется)\nnotifications: для тикетов (проектируется)" as pg
+}
+
+appl ..> spa : экраны поддержки\n(проектируется)
+support --> spa
+spa --> nginx : HTTP(S) через\nNginx Proxy Manager → :80
+nginx --> api : Connect RPC / REST
+api --> pg : Prisma
+@enduml

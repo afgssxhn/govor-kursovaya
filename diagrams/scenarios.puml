@@ -1,0 +1,61 @@
+@startuml
+title Последовательность: поиск справки, создание тикета и ведение чата поддержки
+skinparam defaultFontName DejaVu Sans
+skinparam dpi 150
+skinparam shadowing false
+
+actor "Заявитель" as A
+actor "Оператор поддержки (Admin)" as O
+participant "Экран справки\n(FAQ, проектируется)" as FAQ
+participant "Экран чата\n(Chat)" as CHAT
+participant "Очередь задач\n(Queue)" as Q
+participant "SupportRpcService →\nSupportService" as S
+participant "KBService\n(проектируется)" as KB
+database "PostgreSQL" as DB
+
+== Поиск информации и создание тикета — Заявитель (проектируется) ==
+A -> FAQ : вводит поисковый запрос "Ошибка архива"
+FAQ -> KB : SearchArticles(query) (проектируется)
+KB -> DB : выборка статей по ключевым словам
+DB --> KB : список релевантных статей
+KB --> FAQ : Article[]
+A -> FAQ : ответ не находит решения, нажимает "Создать тикет"
+A -> FAQ : заполняет форму (тема, описание, приоритет)
+FAQ -> S : CreateTicket(subject, text, priority)
+S -> DB : Ticket(status = Open, slaDeadline)\n+ TicketMessage(role = User) из text
+S --> FAQ : ticket
+FAQ -> CHAT : переход в чат тикета (проектируется)
+
+== Обработка тикета — Оператор поддержки ==
+O -> Q : открывает список входящих обращений (/admin/support)
+Q -> S : ListTickets(page = 1, limit = 100)
+S -> DB : выборка тикетов (сортировка по createdAt desc)
+DB --> S : массив тикетов
+S --> Q : tickets[], meta
+Q -> S : ListMessages(ticket_id) для каждого тикета
+S --> Q : messages[], meta
+O -> Q : выбирает тикет и нажимает "Взять"
+Q -> S : UpdateTicketStatus(id, InProgress)
+S -> DB : Ticket(status = InProgress, assigneeId = Admin)
+S --> Q : ticket
+Q -> CHAT : по клику на строку открывает диалог тикета
+
+== Ведение диалога в чате — Оператор и Заявитель (чат заявителя — проектируется) ==
+O -> CHAT : вводит инструкцию и нажимает "Отправить"
+CHAT -> S : AddMessage(ticket_id, text)
+S -> DB : TicketMessage(authorId = Admin, role = Support)\nTicket(assigneeId = Admin, Open/Resolved → InProgress)
+S --> CHAT : message, ticket
+Note over A : push-уведомление об ответе\nв тикете (проектируется)
+A -> CHAT : переходит в чат, читает ответ оператора (проектируется)
+A -> CHAT : вводит текст "Спасибо, всё заработало!" (проектируется)
+CHAT -> S : AddMessage(ticket_id, text)
+S -> DB : TicketMessage(authorId = автор тикета, role = User)
+S --> CHAT : message, ticket
+
+== Закрытие тикета — Оператор поддержки ==
+O -> CHAT : нажимает "Закрыть", подтверждает, вводит итоговое решение
+CHAT -> S : CloseTicket(id, resolution)
+S -> DB : Ticket(status = Closed, resolution, resolvedAt)
+S --> CHAT : ticket
+CHAT -> CHAT : поле ответа скрывается (тикет закрыт)
+@enduml

@@ -1,0 +1,40 @@
+@startuml
+title Диаграмма компонентов: Чат поддержки и База знаний
+skinparam defaultFontName DejaVu Sans
+skinparam dpi 150
+skinparam shadowing false
+
+package "Frontend (Angular SPA)" {
+    component "TicketQueueComponent" as queue
+    component "OperatorChatComponent" as chatUI
+    component "ArticleSearchComponent\n(проектируется)" as searchUI #line.dashed
+    component "ArticleViewComponent\n(проектируется)" as viewUI #line.dashed
+    interface "SupportService (Connect Client)\nSupportApiService" as ticketClient
+    interface "KBService (Connect Client)\n(проектируется)" as kbClient
+}
+
+package "Backend (NestJS API)" {
+    component "SupportRpcService" as ticketRpc
+    component "KnowledgeBaseRpcService\n(проектируется)" as kbRpc #line.dashed
+    component "SupportService" as ticketCore
+    component "KnowledgeBaseService\n(проектируется)" as kbCore #line.dashed
+    component "NotificationService" as notifyCore
+}
+
+database "PostgreSQL" as db
+
+queue --> ticketClient
+chatUI --> ticketClient
+searchUI ..> kbClient
+viewUI ..> kbClient
+
+ticketClient --> ticketRpc : RPC
+kbClient ..> kbRpc : RPC
+
+ticketRpc --> ticketCore
+kbRpc ..> kbCore
+
+ticketCore --> db : Prisma
+kbCore ..> db : Prisma
+ticketCore ..> notifyCore : оповещения (проектируется)
+@enduml

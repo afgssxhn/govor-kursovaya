@@ -1,0 +1,99 @@
+@startuml
+title Диаграмма классов: чат поддержки, база знаний и поиск
+skinparam defaultFontName DejaVu Sans
+skinparam dpi 150
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+
+enum TicketStatus {
+    Open
+    InProgress
+    Resolved
+    Closed
+}
+
+enum TicketPriority {
+    Low
+    Medium
+    High
+    Urgent
+}
+
+enum Role {
+    Applicant
+    Notary
+    Admin
+}
+
+enum TicketMessageRole {
+    User
+    Ai
+    Support
+}
+
+class User {
+    id : UUID «PK»
+    email : varchar «unique, not null»
+    passwordHash : varchar?
+    fullName : varchar «not null»
+    role : Role «not null»
+    phoneNumber : varchar?
+    isActive : boolean «not null»
+}
+
+class Ticket {
+    id : UUID «PK»
+    subject : varchar «not null»
+    status : TicketStatus «not null»
+    priority : TicketPriority «not null»
+    authorId : UUID «FK, not null»
+    assigneeId : UUID? «FK»
+    slaDeadline : timestamp «not null»
+    resolution : text?
+    resolvedAt : timestamp?
+    createdAt : timestamp «not null»
+    updatedAt : timestamp «not null»
+}
+
+class TicketMessage {
+    id : UUID «PK»
+    ticketId : UUID «FK, not null»
+    authorId : UUID «FK, not null»
+    role : TicketMessageRole «not null»
+    text : text «not null»
+    attachmentIds : text[]
+    createdAt : timestamp «not null»
+}
+
+class Article <<проектируется>> #line.dashed {
+    id : UUID «PK»
+    title : varchar «not null»
+    content : text «not null»
+    category : varchar «not null»
+    authorId : UUID «FK, not null»
+    views : int «not null»
+    createdAt : timestamp «not null»
+    updatedAt : timestamp «not null»
+}
+
+class Notification {
+    id : UUID «PK»
+    userId : UUID «FK, not null»
+    type : NotificationType «not null»
+    message : text «not null»
+    sentAt : timestamp «not null»
+    readAt : timestamp?
+}
+
+User "1" --> "0..*" Ticket : "создаёт (authorId)"
+User "0..1" --> "0..*" Ticket : "обрабатывает (assigneeId)"
+User "1" --> "0..*" TicketMessage : "отправляет (authorId)"
+User "1" ..> "0..*" Article : "пишет (authorId)\nпроектируется"
+User "1" --> "0..*" Notification : "получает"
+
+Ticket "1" --> "0..*" TicketMessage : "содержит сообщения"
+Ticket ..> Notification : "триггерит оповещения\n(проектируется)"
+TicketStatus -[hidden]down- TicketPriority
+TicketPriority -[hidden]down- Role
+Role -[hidden]down- TicketMessageRole
+@enduml
